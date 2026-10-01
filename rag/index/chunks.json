@@ -1,0 +1,230 @@
+[
+  {
+    "chunk_id": "README-0",
+    "source": "README.md",
+    "category": "knowledge_base",
+    "text": "# Medical Knowledge Base"
+  },
+  {
+    "chunk_id": "README-1",
+    "source": "README.md",
+    "category": "knowledge_base",
+    "text": "This directory contains educational prototype knowledge used to demonstrate retrieval-augmented generation (RAG)."
+  },
+  {
+    "chunk_id": "README-2",
+    "source": "README.md",
+    "category": "knowledge_base",
+    "text": "The documents are intentionally written as high-level grounding context. They are not a substitute for validated clinical guidelines, a drug interaction database, a formulary, or advice from qualified medical personnel."
+  },
+  {
+    "chunk_id": "README-3",
+    "source": "README.md",
+    "category": "knowledge_base",
+    "text": "Future stages will connect this retriever to the Medical Assessment, Regional Risk, and Clinical Safety agents, followed by an LLM explanation layer."
+  },
+  {
+    "chunk_id": "field_assessment-0",
+    "source": "diseases/field_assessment.md",
+    "category": "diseases",
+    "text": "# Field symptom assessment"
+  },
+  {
+    "chunk_id": "field_assessment-1",
+    "source": "diseases/field_assessment.md",
+    "category": "diseases",
+    "text": "Symptoms such as fever, pain, diarrhea, breathing difficulty, rash, altered mental status, or severe weakness can have multiple causes. Environmental exposure and mission context can help prioritize questions, but they cannot establish a diagnosis by themselves."
+  },
+  {
+    "chunk_id": "field_assessment-2",
+    "source": "diseases/field_assessment.md",
+    "category": "diseases",
+    "text": "The medical assessment agent should collect relevant history, identify red flags, retrieve supporting knowledge, and clearly separate evidence from inference."
+  },
+  {
+    "chunk_id": "malaria_context-0",
+    "source": "diseases/malaria_context.md",
+    "category": "diseases",
+    "text": "# Malaria context"
+  },
+  {
+    "chunk_id": "malaria_context-1",
+    "source": "diseases/malaria_context.md",
+    "category": "diseases",
+    "text": "Malaria risk is influenced by geography, mosquito exposure, season, travel or deployment history, and local epidemiology. Fever after exposure in a malaria-risk area requires appropriate clinical evaluation and testing according to local medical protocols."
+  },
+  {
+    "chunk_id": "malaria_context-2",
+    "source": "diseases/malaria_context.md",
+    "category": "diseases",
+    "text": "The system must not diagnose malaria solely from region or symptoms, and it must not autonomously select a malaria treatment. The knowledge retrieved here is intended to support an assessment workflow and medical review."
+  },
+  {
+    "chunk_id": "medication_information-0",
+    "source": "drugs/medication_information.md",
+    "category": "drugs",
+    "text": "# Medication information policy for the prototype"
+  },
+  {
+    "chunk_id": "medication_information-1",
+    "source": "drugs/medication_information.md",
+    "category": "drugs",
+    "text": "Medication records in the project's CSV dataset can be used as structured model-training data and retrieval context. The dataset may contain drug names, dosage forms, typical dosage text, quantity fields, storage notes, use cases, regions, and mission types."
+  },
+  {
+    "chunk_id": "medication_information-2",
+    "source": "drugs/medication_information.md",
+    "category": "drugs",
+    "text": "The RAG layer should treat the dataset as project data rather than authoritative prescribing guidance. Any dosage or medication instruction displayed to a user should be clearly labelled as dataset/model output and should be reviewed against authoritative clinical references before real-world use."
+  },
+  {
+    "chunk_id": "arctic-0",
+    "source": "regional_risks/arctic.md",
+    "category": "regional_risks",
+    "text": "# Arctic and cold environment"
+  },
+  {
+    "chunk_id": "arctic-1",
+    "source": "regional_risks/arctic.md",
+    "category": "regional_risks",
+    "text": "Cold environments can increase the risk of cold stress, frostbite, hypothermia, dry skin, and reduced dexterity. Planning should consider protective clothing, warming resources, shelter, monitoring, and rapid access to medical care."
+  },
+  {
+    "chunk_id": "arctic-2",
+    "source": "regional_risks/arctic.md",
+    "category": "regional_risks",
+    "text": "The RAG layer should use this information to provide environmental context and safety prompts, not to independently diagnose a condition."
+  },
+  {
+    "chunk_id": "coastal-0",
+    "source": "regional_risks/coastal.md",
+    "category": "regional_risks",
+    "text": "# Coastal and maritime environment"
+  },
+  {
+    "chunk_id": "coastal-1",
+    "source": "regional_risks/coastal.md",
+    "category": "regional_risks",
+    "text": "Coastal and maritime operations can involve motion sickness, prolonged sun exposure, saltwater exposure, humidity, limited fresh-water access, and delayed access to shore-based medical services. Mission planning should account for hydration, environmental protection, injury prevention, and evacuation constraints."
+  },
+  {
+    "chunk_id": "desert-0",
+    "source": "regional_risks/desert.md",
+    "category": "regional_risks",
+    "text": "# Arid and desert environment"
+  },
+  {
+    "chunk_id": "desert-1",
+    "source": "regional_risks/desert.md",
+    "category": "regional_risks",
+    "text": "Arid environments can increase the risk of dehydration, heat illness, dust exposure, sun exposure, and reduced access to water. Mission planning should consider hydration resources, heat protection, eye and respiratory protection, and reliable medical monitoring."
+  },
+  {
+    "chunk_id": "desert-2",
+    "source": "regional_risks/desert.md",
+    "category": "regional_risks",
+    "text": "Regional information provides context for assessment. It does not establish a diagnosis or automatically justify a medication recommendation."
+  },
+  {
+    "chunk_id": "high_altitude-0",
+    "source": "regional_risks/high_altitude.md",
+    "category": "regional_risks",
+    "text": "# High-altitude environment"
+  },
+  {
+    "chunk_id": "high_altitude-1",
+    "source": "regional_risks/high_altitude.md",
+    "category": "regional_risks",
+    "text": "High-altitude operations can involve reduced oxygen availability and risks related to altitude exposure, cold, exertion, and rapid ascent. Assessment should consider altitude, ascent rate, symptoms, duration of exposure, and evacuation capability."
+  },
+  {
+    "chunk_id": "high_altitude-2",
+    "source": "regional_risks/high_altitude.md",
+    "category": "regional_risks",
+    "text": "Suspected serious altitude illness requires trained medical assessment and appropriate evacuation or emergency procedures. A software system should flag uncertainty rather than make an autonomous treatment decision."
+  },
+  {
+    "chunk_id": "mixed_environment-0",
+    "source": "regional_risks/mixed_environment.md",
+    "category": "regional_risks",
+    "text": "# Mixed or general field environment"
+  },
+  {
+    "chunk_id": "mixed_environment-1",
+    "source": "regional_risks/mixed_environment.md",
+    "category": "regional_risks",
+    "text": "Mixed field environments can combine sanitation challenges, trauma exposure, respiratory illness, chronic medical needs, and variable access to care. Planning should be based on the actual mission profile, personnel medical information, available supplies, and evacuation pathway."
+  },
+  {
+    "chunk_id": "tropical-0",
+    "source": "regional_risks/tropical.md",
+    "category": "regional_risks",
+    "text": "# Tropical environment"
+  },
+  {
+    "chunk_id": "tropical-1",
+    "source": "regional_risks/tropical.md",
+    "category": "regional_risks",
+    "text": "Tropical rainforest environments can involve high humidity, heat stress, standing water, insect exposure, fungal skin problems, and sanitation-related infectious disease risks. Field medical planning should consider hydration, heat illness prevention, insect-bite prevention, skin care, wound hygiene, and access to medical evacuation."
+  },
+  {
+    "chunk_id": "tropical-2",
+    "source": "regional_risks/tropical.md",
+    "category": "regional_risks",
+    "text": "For an AI system, regional context should be treated as a risk signal rather than a diagnosis. The system should not infer that a person has a specific infection merely because they are operating in a tropical region."
+  },
+  {
+    "chunk_id": "allergy_and_contraindication-0",
+    "source": "safety/allergy_and_contraindication.md",
+    "category": "safety",
+    "text": "# Allergy and contraindication validation"
+  },
+  {
+    "chunk_id": "allergy_and_contraindication-1",
+    "source": "safety/allergy_and_contraindication.md",
+    "category": "safety",
+    "text": "Known medication allergies are a high-priority safety input. The system should also check for documented contraindications and clinically important risk factors before presenting a model-generated recommendation."
+  },
+  {
+    "chunk_id": "allergy_and_contraindication-2",
+    "source": "safety/allergy_and_contraindication.md",
+    "category": "safety",
+    "text": "If allergy or contraindication information is missing, the safety agent should report the missing information and require medical review rather than assuming that the medication is safe."
+  },
+  {
+    "chunk_id": "drug_interactions-0",
+    "source": "safety/drug_interactions.md",
+    "category": "safety",
+    "text": "# Drug interaction validation"
+  },
+  {
+    "chunk_id": "drug_interactions-1",
+    "source": "safety/drug_interactions.md",
+    "category": "safety",
+    "text": "Drug interaction checking should compare the proposed medication with the person's current medication list and relevant medical history. A negative retrieval result must not be interpreted as proof that no interaction exists."
+  },
+  {
+    "chunk_id": "drug_interactions-2",
+    "source": "safety/drug_interactions.md",
+    "category": "safety",
+    "text": "For a production clinical system, interaction data should come from validated and maintained clinical references. In this academic prototype, the agent should flag insufficient evidence instead of claiming complete interaction coverage."
+  },
+  {
+    "chunk_id": "general_safety-0",
+    "source": "safety/general_safety.md",
+    "category": "safety",
+    "text": "# General clinical safety principles"
+  },
+  {
+    "chunk_id": "general_safety-1",
+    "source": "safety/general_safety.md",
+    "category": "safety",
+    "text": "Medication selection should consider allergies, known contraindications, current medications, relevant medical history, age, pregnancy status when applicable, kidney or liver function when relevant, and the indication for treatment."
+  },
+  {
+    "chunk_id": "general_safety-2",
+    "source": "safety/general_safety.md",
+    "category": "safety",
+    "text": "A recommendation generated by an ML model is not evidence that a medication is safe for a particular person. The clinical safety layer should look for missing information and conflicts, and should escalate uncertain or high-risk cases for qualified medical review."
+  }
+]

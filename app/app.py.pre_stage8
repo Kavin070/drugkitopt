@@ -1,0 +1,495 @@
+import streamlit as st
+import pandas as pd
+import pickle
+import os
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import classification_report, accuracy_score
+import warnings
+warnings.filterwarnings('ignore')
+
+# Set page config
+st.set_page_config(page_title="Military Drug Kit Optimizer", layout="wide")
+
+# AUTO-LOAD DATASET - No manual loading required!
+DATASET_PATHS = [
+    "data/dataset.csv",
+    "dataset.csv",
+    "app/dataset.csv",
+    "../data/dataset.csv"
+]
+
+def auto_load_dataset():
+    """Automatically load dataset from common paths"""
+    for path in DATASET_PATHS:
+        if os.path.exists(path):
+            try:
+                df = pd.read_csv(path)
+                
+                # Standardize column names
+                if 'Drug_Name' in df.columns and 'Primary_Drug' not in df.columns:
+                    df['Primary_Drug'] = df['Drug_Name']
+                
+                # Check required columns
+                required_cols = ['Use_Case', 'Region_Notes', 'Mission_Type', 'Primary_Drug']
+                if all(col in df.columns for col in required_cols):
+                    df = df.drop_duplicates().dropna(subset=required_cols)
+                    return df, path
+            except Exception as e:
+                continue
+    
+    return None, None
+
+def augment_dataset(df):
+    """Augment dataset by creating more combinations for better training"""
+    original_len = len(df)
+    
+    if original_len < 100:
+        # Get unique values
+        use_cases = df['Use_Case'].unique()
+        regions = df['Region_Notes'].unique()
+        missions = df['Mission_Type'].unique()
+        
+        # Create drug mapping from existing data
+        drug_map = {}
+        dosage_map = {}
+        
+        for _, row in df.iterrows():
+            if row['Use_Case'] not in drug_map:
+                drug_map[row['Use_Case']] = row['Primary_Drug']
+                if 'Dosage_Info' in df.columns:
+                    dosage_map[row['Use_Case']] = row.get('Dosage_Info', '')
+        
+        # Create additional combinations
+        augmented_data = []
+        for use_case in use_cases:
+            primary_drug = drug_map.get(use_case, df['Primary_Drug'].iloc[0])
+            dosage = dosage_map.get(use_case, '')
+            
+            # Create entries for each region-mission combo
+            for region in regions:
+                for mission in missions:
+                    # Check if combination already exists
+                    exists = ((df['Use_Case'] == use_case) & 
+                             (df['Region_Notes'] == region) & 
+                             (df['Mission_Type'] == mission)).any()
+                    
+                    if not exists:
+                        new_row = {
+                            'Use_Case': use_case,
+                            'Region_Notes': region,
+                            'Mission_Type': mission,
+                            'Primary_Drug': primary_drug
+                        }
+                        if 'Dosage_Info' in df.columns:
+                            new_row['Dosage_Info'] = dosage
+                        augmented_data.append(new_row)
+        
+        # Combine original and augmented data
+        if augmented_data:
+            aug_df = pd.DataFrame(augmented_data)
+            df_combined = pd.concat([df, aug_df], ignore_index=True)
+            return df_combined, original_len, len(df_combined)
+    
+    return df, original_len, original_len
+
+def get_essential_drugs_by_mission():
+    """Get essential drugs based on region, mission, and duration"""
+    return {
+        'base_kit': {
+            'Antibiotics': [
+                {'drug': 'Amoxicillin', 'dosage': '500mg every 8h', 'qty': '30 tablets', 'use': 'Bacterial infections'},
+                {'drug': 'Azithromycin', 'dosage': '500mg daily', 'qty': '15 tablets', 'use': 'Respiratory infections'},
+                {'drug': 'Ciprofloxacin', 'dosage': '500mg BID', 'qty': '20 tablets', 'use': 'UTI, GI infections'}
+            ],
+            'Pain Management': [
+                {'drug': 'Ibuprofen', 'dosage': '400mg every 6h', 'qty': '50 tablets', 'use': 'Pain, inflammation'},
+                {'drug': 'Acetaminophen', 'dosage': '500mg every 6h', 'qty': '50 tablets', 'use': 'Pain, fever'},
+                {'drug': 'Morphine', 'dosage': '5-10mg IV', 'qty': '10 vials', 'use': 'Severe pain'}
+            ],
+            'GI Support': [
+                {'drug': 'ORS', 'dosage': '1 packet per liter', 'qty': '20 packets', 'use': 'Dehydration'},
+                {'drug': 'Loperamide', 'dosage': '2mg after stool', 'qty': '30 tablets', 'use': 'Diarrhea'},
+                {'drug': 'Omeprazole', 'dosage': '20mg daily', 'qty': '30 tablets', 'use': 'Acid reflux'}
+            ],
+            'Emergency': [
+                {'drug': 'Epinephrine', 'dosage': '0.3mg IM', 'qty': '3 auto-injectors', 'use': 'Anaphylaxis'},
+                {'drug': 'Diphenhydramine', 'dosage': '25mg every 6h', 'qty': '30 tablets', 'use': 'Allergies'},
+                {'drug': 'Nitroglycerin', 'dosage': '0.4mg SL', 'qty': '25 tablets', 'use': 'Chest pain'}
+            ]
+        },
+        'Tropical': [
+            {'drug': 'Doxycycline', 'dosage': '100mg daily', 'qty': 'Per duration', 'use': 'Malaria prophylaxis'},
+            {'drug': 'Permethrin spray', 'dosage': 'Apply to clothing', 'qty': '2 bottles', 'use': 'Insect repellent'},
+            {'drug': 'Clotrimazole cream', 'dosage': 'Apply BID', 'qty': '3 tubes', 'use': 'Fungal infections'}
+        ],
+        'Desert': [
+            {'drug': 'ORS', 'dosage': '1 packet per liter', 'qty': '50 packets', 'use': 'Dehydration'},
+            {'drug': 'Sunscreen SPF 50+', 'dosage': 'Apply every 2h', 'qty': '5 bottles', 'use': 'Sun protection'},
+            {'drug': 'Eye drops', 'dosage': '2 drops PRN', 'qty': '5 bottles', 'use': 'Dust irritation'}
+        ],
+        'High Altitude': [
+            {'drug': 'Acetazolamide', 'dosage': '250mg BID', 'qty': 'Per duration', 'use': 'AMS prevention'},
+            {'drug': 'Dexamethasone', 'dosage': '4mg every 6h', 'qty': '30 tablets', 'use': 'HACE/HAPE'},
+            {'drug': 'Nifedipine', 'dosage': '30mg SR BID', 'qty': '30 tablets', 'use': 'HAPE treatment'}
+        ],
+        'Arctic': [
+            {'drug': 'Thermal packs', 'dosage': 'Apply as needed', 'qty': '20 packs', 'use': 'Frostbite prevention'},
+            {'drug': 'Petroleum jelly', 'dosage': 'Apply to exposed skin', 'qty': '5 tubes', 'use': 'Skin protection'},
+            {'drug': 'Vitamin D', 'dosage': '2000 IU daily', 'qty': 'Per duration', 'use': 'Limited sun exposure'}
+        ],
+        'Jungle': [
+            {'drug': 'Doxycycline', 'dosage': '100mg daily', 'qty': 'Per duration', 'use': 'Malaria prophylaxis'},
+            {'drug': 'Antifungal powder', 'dosage': 'Apply BID', 'qty': '5 bottles', 'use': 'Foot/skin fungus'},
+            {'drug': 'Antivenin', 'dosage': 'Per protocol', 'qty': '2 vials', 'use': 'Snake/spider bites'}
+        ],
+        'Coastal': [
+            {'drug': 'Dimenhydrinate', 'dosage': '50mg every 6h', 'qty': '40 tablets', 'use': 'Motion sickness'},
+            {'drug': 'Ciprofloxacin', 'dosage': '500mg BID', 'qty': '30 tablets', 'use': 'Water-borne infections'},
+            {'drug': 'Hydrocortisone cream', 'dosage': 'Apply TID', 'qty': '3 tubes', 'use': 'Marine stings'}
+        ],
+        'Urban': [
+            {'drug': 'Amoxicillin', 'dosage': '500mg every 8h', 'qty': '50 tablets', 'use': 'Respiratory infections'},
+            {'drug': 'Activated charcoal', 'dosage': '25-50g oral', 'qty': '10 doses', 'use': 'Poisoning/overdose'},
+            {'drug': 'Antiseptic wipes', 'dosage': 'Use as needed', 'qty': '100 wipes', 'use': 'Wound cleaning'}
+        ],
+        'Mountainous': [
+            {'drug': 'Acetazolamide', 'dosage': '250mg BID', 'qty': 'Per duration', 'use': 'Altitude sickness'},
+            {'drug': 'Ibuprofen', 'dosage': '400mg every 6h', 'qty': '60 tablets', 'use': 'Pain/inflammation'},
+            {'drug': 'Elastic bandages', 'dosage': 'Apply as needed', 'qty': '10 rolls', 'use': 'Sprains/strains'}
+        ]
+    }
+
+def calculate_quantity_by_duration(drug, dosage, duration_days, team_size=10):
+    """Calculate drug quantity based on mission duration and team size"""
+    # Extract frequency from dosage string
+    daily_doses = 1
+    if 'every 4h' in dosage or 'QID' in dosage:
+        daily_doses = 6
+    elif 'every 6h' in dosage or 'TID' in dosage:
+        daily_doses = 4
+    elif 'every 8h' in dosage or 'BID' in dosage:
+        daily_doses = 3
+    elif 'daily' in dosage or 'once' in dosage:
+        daily_doses = 1
+    
+    # Calculate total needed
+    total_needed = daily_doses * duration_days * team_size
+    
+    # Add 30% buffer for safety
+    total_with_buffer = int(total_needed * 1.3)
+    
+    return total_with_buffer
+
+@st.cache_resource
+def train_symptom_model(df):
+    """Train model for symptom-based drug prediction with caching"""
+    try:
+        # Prepare data
+        X = df[["Use_Case", "Region_Notes", "Mission_Type"]]
+        y = df["Primary_Drug"]
+        
+        # Encode
+        encoders = {}
+        X_encoded = X.copy()
+        for col in X.columns:
+            encoders[col] = LabelEncoder()
+            X_encoded[col] = encoders[col].fit_transform(X[col])
+        
+        label_encoder = LabelEncoder()
+        y_encoded = label_encoder.fit_transform(y)
+        
+        # Split data with stratification if possible
+        try:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_encoded, y_encoded, test_size=0.2, random_state=42, stratify=y_encoded
+            )
+        except ValueError:
+            X_train, X_test, y_train, y_test = train_test_split(
+                X_encoded, y_encoded, test_size=0.2, random_state=42
+            )
+        
+        # Choose model based on dataset size
+        if len(df) < 100:
+            model = RandomForestClassifier(
+                n_estimators=100,
+                max_depth=10,
+                min_samples_split=2,
+                random_state=42
+            )
+        else:
+            model = GradientBoostingClassifier(
+                n_estimators=200,
+                max_depth=5,
+                learning_rate=0.1,
+                random_state=42
+            )
+        
+        model.fit(X_train, y_train)
+        
+        # Evaluate
+        y_pred = model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+        
+        # Cross-validation score
+        cv_accuracy = accuracy
+        if len(df) >= 20:
+            try:
+                cv_scores = cross_val_score(model, X_encoded, y_encoded, cv=min(5, len(df)//4))
+                cv_accuracy = cv_scores.mean()
+            except:
+                pass
+        
+        return model, encoders, label_encoder, accuracy, cv_accuracy, df
+        
+    except Exception as e:
+        st.error(f"❌ Error training model: {str(e)}")
+        return None, None, None, 0, 0, df
+
+def predict_drug_for_symptom(model, encoders, label_encoder, df, symptom, region, mission):
+    """Predict drug for a specific symptom"""
+    try:
+        # Encode inputs
+        input_data = []
+        for col, value in [("Use_Case", symptom), ("Region_Notes", region), ("Mission_Type", mission)]:
+            if value in encoders[col].classes_:
+                encoded = encoders[col].transform([value])[0]
+            else:
+                # Find closest match
+                similar = [c for c in encoders[col].classes_ if value.lower() in c.lower()]
+                if similar:
+                    encoded = encoders[col].transform([similar[0]])[0]
+                    st.info(f"ℹ️ Using '{similar[0]}' as closest match for '{value}'")
+                else:
+                    encoded = 0
+                    st.warning(f"⚠️ '{value}' not found in training data. Using default.")
+            input_data.append(encoded)
+        
+        input_df = pd.DataFrame([input_data], columns=["Use_Case", "Region_Notes", "Mission_Type"])
+        
+        # Predict
+        prediction = model.predict(input_df)[0]
+        primary_drug = label_encoder.inverse_transform([prediction])[0]
+        
+        # Get dosage from dataset
+        dosage_info = "Consult medical officer for dosage"
+        
+        # Try to find dosage in dataset
+        if 'Dosage_Info' in df.columns:
+            drug_match = df[(df['Primary_Drug'] == primary_drug) & (df['Use_Case'] == symptom)]
+            if not drug_match.empty:
+                dosage_info = drug_match.iloc[0]['Dosage_Info']
+            else:
+                drug_match = df[df['Primary_Drug'] == primary_drug]
+                if not drug_match.empty:
+                    dosage_info = drug_match.iloc[0]['Dosage_Info']
+        elif 'Typical_Dosage' in df.columns:
+            drug_match = df[df['Primary_Drug'] == primary_drug]
+            if not drug_match.empty:
+                dosage_info = drug_match.iloc[0]['Typical_Dosage']
+        
+        return primary_drug, dosage_info
+        
+    except Exception as e:
+        return f"Error: {str(e)}", ""
+
+# Main App
+def main():
+    st.title("🏥 Military Drug Kit Optimizer v2.0")
+    st.markdown("**Complete mission drug kit planning with symptom-specific recommendations**")
+    
+    # AUTO-LOAD DATASET
+    df, dataset_path = auto_load_dataset()
+    
+    if df is None:
+        st.error("❌ **Dataset not found!**")
+        st.info("📁 Please place your dataset CSV in one of these locations:")
+        for path in DATASET_PATHS:
+            st.code(path)
+        
+        st.markdown("### 📋 Required Dataset Format:")
+        st.code("""
+Required Columns:
+- Use_Case: Medical condition/symptom
+- Region_Notes: Geographic region
+- Mission_Type: Type of operation
+- Drug_Name or Primary_Drug: Recommended medication
+- Dosage_Info (optional): Dosing instructions
+        """)
+        return
+    
+    # Show dataset loaded info
+    st.success(f"✅ Dataset loaded from: `{dataset_path}`")
+    
+    # Augment dataset
+    df_augmented, original_size, final_size = augment_dataset(df)
+    
+    if final_size > original_size:
+        st.info(f"📊 Dataset augmented: {original_size} → {final_size} samples for better accuracy")
+    
+    # Train model (cached - only trains once!)
+    with st.spinner("🔄 Training model... (This happens only once)"):
+        result = train_symptom_model(df_augmented)
+        
+        if result[0] is None:
+            st.error("❌ Failed to train model. Please check your dataset.")
+            return
+        
+        model, encoders, label_encoder, accuracy, cv_accuracy, df = result
+    
+    # Show model status
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("✅ System Status", "Ready")
+    with col2:
+        st.metric("🎯 Model Accuracy", f"{accuracy:.1%}")
+    with col3:
+        st.metric("📊 Training Samples", final_size)
+    with col4:
+        st.metric("💊 Drug Types", df['Primary_Drug'].nunique())
+    
+    st.markdown("---")
+    
+    # Phase 1: Mission Planning
+    st.header("📋 Phase 1: Mission Drug Kit Planning")
+    st.markdown("**Specify mission parameters to get complete drug kit**")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    # Get unique values from dataset
+    available_regions = sorted(df['Region_Notes'].unique().tolist())
+    available_missions = sorted(df['Mission_Type'].unique().tolist())
+    
+    with col1:
+        region = st.selectbox("🌍 Region:", options=available_regions)
+    
+    with col2:
+        mission = st.selectbox("🎯 Mission Type:", options=available_missions)
+    
+    with col3:
+        duration = st.number_input("⏱️ Duration (days):", min_value=1, max_value=365, value=14)
+    
+    with col4:
+        team_size = st.number_input("👥 Team Size:", min_value=1, max_value=100, value=10)
+    
+    if st.button("🎒 Generate Complete Drug Kit", type="primary"):
+        st.markdown("---")
+        st.subheader(f"📦 Complete Drug Kit for {duration}-Day {mission} in {region}")
+        
+        essential_drugs = get_essential_drugs_by_mission()
+        
+        # Base Kit
+        st.markdown("### 🔴 **Essential Base Kit (All Missions)**")
+        for category, drugs in essential_drugs['base_kit'].items():
+            with st.expander(f"**{category}**", expanded=True):
+                for drug in drugs:
+                    qty = calculate_quantity_by_duration(drug['drug'], drug['dosage'], duration, team_size)
+                    st.write(f"**{drug['drug']}** - {drug['dosage']}")
+                    st.write(f"└─ Quantity: {qty} units | Use: {drug['use']}")
+                    st.write("")
+        
+        # Region-Specific
+        if region in essential_drugs:
+            st.markdown(f"### 🟡 **{region}-Specific Additions**")
+            for drug in essential_drugs[region]:
+                if 'Per duration' in drug['qty']:
+                    qty = calculate_quantity_by_duration(drug['drug'], drug['dosage'], duration, team_size)
+                else:
+                    qty = drug['qty']
+                
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"**{drug['drug']}** - {drug['dosage']}")
+                    st.write(f"└─ Use: {drug['use']}")
+                with col2:
+                    st.info(f"Qty: {qty}")
+                st.write("")
+        
+        # Storage guidelines
+        st.markdown("### 📦 **Storage & Handling Guidelines**")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.write("**Temperature Control:**")
+            st.write("• Store 15-25°C")
+            st.write("• Protect from extreme heat/cold")
+            st.write("• Use insulated containers")
+        with col2:
+            st.write("**Moisture Protection:**")
+            st.write("• Keep in waterproof bags")
+            st.write("• Use desiccant packets")
+            st.write("• Check seals regularly")
+        with col3:
+            st.write("**Organization:**")
+            st.write("• Label all medications clearly")
+            st.write("• Separate by category")
+            st.write("• Track expiration dates")
+    
+    # Phase 2: Symptom-Specific
+    st.markdown("---")
+    st.header("🩺 Phase 2: Symptom-Specific Drug Lookup")
+    st.markdown("**Need a drug for a specific symptom? Get instant recommendations**")
+    
+    col1, col2 = st.columns(2)
+    
+    available_symptoms = sorted(df['Use_Case'].unique().tolist())
+    
+    with col1:
+        symptom = st.selectbox("Select Symptom/Condition:", options=[''] + available_symptoms)
+    
+    with col2:
+        custom_symptom = st.text_input("Or enter custom symptom:", placeholder="e.g., Chest pain")
+    
+    final_symptom = custom_symptom if custom_symptom else symptom
+    
+    if st.button("💊 Get Drug Recommendation"):
+        if final_symptom:
+            with st.spinner("🔍 Analyzing symptom..."):
+                drug, dosage = predict_drug_for_symptom(
+                    model, encoders, label_encoder, df,
+                    final_symptom, region, mission
+                )
+                
+                if not drug.startswith("Error"):
+                    st.success(f"### 💊 Recommended: **{drug}**")
+                    st.info(f"**Dosage:** {dosage}")
+                    
+                    # Additional info
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write("**Administration:**")
+                        if 'IV' in dosage:
+                            st.write("• Intravenous administration")
+                            st.write("• Requires medical personnel")
+                        elif 'Apply' in dosage:
+                            st.write("• Topical application")
+                            st.write("• Clean area before use")
+                        else:
+                            st.write("• Oral administration")
+                            st.write("• Take with water")
+                    
+                    with col2:
+                        st.write("**Important:**")
+                        st.write("• Check patient allergies")
+                        st.write("• Monitor for side effects")
+                        st.write("• Document administration")
+                else:
+                    st.error(drug)
+        else:
+            st.warning("⚠️ Please select or enter a symptom")
+    
+    # Dataset Info (expandable)
+    with st.expander("📚 View Dataset Information"):
+        st.write(f"**Original Dataset:** {original_size} rows")
+        st.write(f"**Augmented Dataset:** {final_size} rows")
+        st.write(f"**Unique Conditions:** {df['Use_Case'].nunique()}")
+        st.write(f"**Regions Covered:** {df['Region_Notes'].nunique()}")
+        st.write(f"**Mission Types:** {df['Mission_Type'].nunique()}")
+        st.dataframe(df.head(20))
+    
+    # Medical Disclaimer
+    st.markdown("---")
+    st.error("⚠️ **MEDICAL DISCLAIMER:** This tool provides recommendations based on military medical protocols. Always consult qualified medical personnel before administering medications. In emergency situations, follow established medical protocols and chain of command.")
+
+if __name__ == "__main__":
+    main()

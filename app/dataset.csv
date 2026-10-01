@@ -1,0 +1,21 @@
+Use_Case,Region_Notes,Mission_Type,Drug_Name
+Malaria prophylaxis,Tropical,Jungle Ops,Doxycycline
+Wound infection,Desert,Desert Ops,Amoxicillin
+Pain management,High Altitude,Mountain Ops,Ibuprofen
+Diarrhea treatment,Coastal,Naval Ops,Loperamide
+Respiratory infection,Jungle,Combat,Azithromycin
+Skin infection,Arctic,Reconnaissance,Mupirocin
+Eye infection,Urban,Peacekeeping,Erythromycin
+Fever reduction,Mountainous,Training,Acetaminophen
+Allergic reaction,Tropical,Jungle Ops,Diphenhydramine
+Motion sickness,Desert,Desert Ops,Dimenhydrinate
+Altitude sickness,High Altitude,Mountain Ops,Acetazolamide
+Dehydration,Coastal,Naval Ops,ORS
+Burns treatment,Jungle,Combat,Silver Sulfadiazine
+Insect bites,Arctic,Reconnaissance,Hydrocortisone
+Fungal infection,Urban,Peacekeeping,Clotrimazole
+Nausea,Mountainous,Training,Ondansetron
+Headache,Tropical,Jungle Ops,Aspirin
+Muscle pain,Desert,Desert Ops,Naproxen
+Joint pain,High Altitude,Mountain Ops,Diclofenac
+Stomach pain,Coastal,Naval Ops,Omeprazole

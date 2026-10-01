@@ -1,0 +1,413 @@
+import streamlit as st
+import pandas as pd
+import pickle
+import os
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import classification_report, accuracy_score
+import warnings
+warnings.filterwarnings('ignore')
+
+# Set page config
+st.set_page_config(page_title="Military Drug Kit Optimizer", layout="wide")
+
+def create_comprehensive_dataset():
+    """Create a comprehensive medical dataset for military operations"""
+    data = {
+        'Use_Case': [
+            'Malaria prophylaxis', 'Wound infection', 'Pain management', 'Diarrhea treatment',
+            'Respiratory infection', 'Skin infection', 'Eye infection', 'Fever reduction',
+            'Allergic reaction', 'Motion sickness', 'Altitude sickness', 'Dehydration',
+            'Burns treatment', 'Insect bites', 'Fungal infection', 'Nausea',
+            'Headache', 'Muscle pain', 'Joint pain', 'Stomach pain',
+            'Hypertension emergency', 'Diabetes management', 'Cardiac emergency', 'Asthma attack',
+            'Anxiety/PTSD', 'Sleep disorders', 'Antibiotic prophylaxis', 'Antifungal prophylaxis',
+            'Snakebite', 'Food poisoning', 'UTI', 'Pneumonia',
+            'Heat exhaustion', 'Hypothermia', 'Concussion', 'Fracture pain'
+        ],
+        'Region_Notes': [
+            'Tropical', 'Desert', 'High Altitude', 'Coastal',
+            'Jungle', 'Arctic', 'Urban', 'Mountainous',
+            'Tropical', 'Desert', 'High Altitude', 'Coastal',
+            'Jungle', 'Arctic', 'Urban', 'Mountainous',
+            'Tropical', 'Desert', 'High Altitude', 'Coastal',
+            'Jungle', 'Arctic', 'Urban', 'Mountainous',
+            'Desert', 'Tropical', 'Arctic', 'Mountainous',
+            'Jungle', 'Coastal', 'Urban', 'High Altitude',
+            'Desert', 'Tropical', 'Arctic', 'Mountainous'
+        ],
+        'Mission_Type': [
+            'Jungle Ops', 'Desert Ops', 'Mountain Ops', 'Naval Ops',
+            'Combat', 'Reconnaissance', 'Peacekeeping', 'Training',
+            'Jungle Ops', 'Desert Ops', 'Mountain Ops', 'Naval Ops',
+            'Combat', 'Reconnaissance', 'Peacekeeping', 'Training',
+            'Jungle Ops', 'Desert Ops', 'Mountain Ops', 'Naval Ops',
+            'Combat', 'Reconnaissance', 'Peacekeeping', 'Training',
+            'Special Ops', 'Humanitarian', 'Border Patrol', 'Evacuation',
+            'Long Range Patrol', 'Urban Combat', 'Amphibious', 'Airborne',
+            'Counter-terrorism', 'Logistics', 'Medical Support', 'Intelligence'
+        ],
+        'Primary_Drug': [
+            'Doxycycline', 'Amoxicillin', 'Ibuprofen', 'Loperamide',
+            'Azithromycin', 'Mupirocin', 'Erythromycin', 'Acetaminophen',
+            'Diphenhydramine', 'Dimenhydrinate', 'Acetazolamide', 'ORS',
+            'Silver Sulfadiazine', 'Hydrocortisone', 'Clotrimazole', 'Ondansetron',
+            'Aspirin', 'Naproxen', 'Diclofenac', 'Omeprazole',
+            'Nifedipine', 'Insulin', 'Nitroglycerin', 'Albuterol',
+            'Lorazepam', 'Melatonin', 'Ciprofloxacin', 'Fluconazole',
+            'Antivenin', 'Metronidazole', 'Trimethoprim', 'Ceftriaxone',
+            'Cooling gel', 'Thermal blanket', 'Dexamethasone', 'Morphine'
+        ],
+        'Dosage_Info': [
+            '100mg daily', '500mg every 8h', '400mg every 6h', '2mg after each loose stool',
+            '250mg daily x3d', 'Apply TID', '250mg every 6h', '500mg every 6h',
+            '25mg every 6h', '50mg every 6h', '250mg BID', '1 packet in 1L water',
+            'Apply BID', 'Apply TID', 'Apply BID', '4mg every 8h',
+            '325mg every 4h', '250mg BID', '50mg TID', '20mg daily',
+            '10mg SL PRN', 'Per sliding scale', '0.4mg SL PRN', '2 puffs PRN',
+            '1mg BID PRN', '3mg at bedtime', '500mg BID', '150mg weekly',
+            'Per protocol', '500mg TID', '160mg BID', '1g IV daily',
+            'Apply liberally', 'Wrap and warm', '4mg daily x3d', '5-10mg IV PRN'
+        ],
+        'Contraindications': [
+            'Pregnancy', 'Penicillin allergy', 'Stomach ulcers', 'Kidney disease',
+            'Liver disease', 'Sulfa allergy', 'Liver disease', 'Liver disease',
+            'Glaucoma', 'Prostate issues', 'Kidney stones', 'Heart failure',
+            'Sulfa allergy', 'Viral infections', 'Liver disease', 'Bowel obstruction',
+            'Bleeding disorders', 'Heart disease', 'Heart disease', 'Liver disease',
+            'Heart disease', 'Type 1 diabetes', 'Hypotension', 'Heart disease',
+            'Respiratory depression', 'Depression meds', 'Tendon problems', 'Liver disease',
+            'Multiple allergies', 'Blood disorders', 'Kidney disease', 'Penicillin allergy',
+            'Heart conditions', 'Circulation problems', 'Diabetes', 'Respiratory depression'
+        ]
+    }
+    return pd.DataFrame(data)
+
+def get_drug_interactions():
+    """Database of common drug interactions and medical conditions"""
+    return {
+        'hypertension': {
+            'avoid': ['Ibuprofen', 'Naproxen', 'Diclofenac'],
+            'reason': 'NSAIDs can increase blood pressure'
+        },
+        'diabetes': {
+            'avoid': ['Dexamethasone', 'Hydrocortisone'],
+            'reason': 'Steroids can increase blood glucose'
+        },
+        'heart_disease': {
+            'avoid': ['Diphenhydramine', 'High-dose Ibuprofen'],
+            'reason': 'Can cause cardiac arrhythmias'
+        },
+        'kidney_disease': {
+            'avoid': ['Ibuprofen', 'Naproxen', 'Diclofenac'],
+            'reason': 'NSAIDs can worsen kidney function'
+        },
+        'liver_disease': {
+            'avoid': ['Acetaminophen', 'Erythromycin'],
+            'reason': 'Hepatotoxic effects'
+        },
+        'asthma': {
+            'avoid': ['Aspirin', 'Ibuprofen'],
+            'reason': 'Can trigger bronchospasm'
+        }
+    }
+
+def get_regional_essentials():
+    """Get essential drugs by region"""
+    regional_drugs = {
+        'Tropical': ['Doxycycline', 'ORS', 'Loperamide', 'Permethrin', 'Antihistamine'],
+        'Desert': ['ORS', 'Sunscreen', 'Lip balm', 'Eye drops', 'Cooling gel'],
+        'High Altitude': ['Acetazolamide', 'Dexamethasone', 'Aspirin', 'Sunscreen'],
+        'Arctic': ['Thermal packs', 'Vaseline', 'Multivitamins', 'Heating pads'],
+        'Jungle': ['Doxycycline', 'Permethrin', 'Antifungal cream', 'Antihistamine'],
+        'Coastal': ['ORS', 'Antihistamine', 'Sunscreen', 'Eye drops'],
+        'Urban': ['Antibiotics', 'Pain relievers', 'Bandages', 'Antiseptic'],
+        'Mountainous': ['Acetazolamide', 'Pain relievers', 'Thermal packs', 'Sunscreen']
+    }
+    return regional_drugs
+
+def load_and_preprocess_data(df):
+    """Load and preprocess the dataset with better error handling"""
+    # Clean data
+    df = df.drop_duplicates().dropna()
+    
+    if len(df) < 5:
+        st.error("❌ Dataset too small for training. Need at least 5 samples.")
+        return None, None, None, None, None, None
+    
+    # Features & Target
+    X = df[["Use_Case", "Region_Notes", "Mission_Type"]]
+    y = df["Primary_Drug"]
+    
+    # Encode categorical variables
+    encoders = {}
+    X_encoded = X.copy()
+    for col in X.columns:
+        encoders[col] = LabelEncoder()
+        X_encoded[col] = encoders[col].fit_transform(X[col])
+    
+    label_encoder = LabelEncoder()
+    y_encoded = label_encoder.fit_transform(y)
+    
+    # Ensure we have enough data for train-test split
+    test_size = min(0.3, max(0.1, len(df) * 0.2 / len(df)))
+    
+    try:
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_encoded, y_encoded, test_size=test_size, random_state=42, stratify=y_encoded
+        )
+    except ValueError:
+        # If stratify fails, try without it
+        X_train, X_test, y_train, y_test = train_test_split(
+            X_encoded, y_encoded, test_size=test_size, random_state=42
+        )
+    
+    return X_train, X_test, y_train, y_test, encoders, label_encoder
+
+def train_model(X_train, y_train):
+    """Train the model with better parameters"""
+    model = RandomForestClassifier(
+        n_estimators=50,  # Reduced for small datasets
+        max_depth=10,
+        min_samples_split=2,
+        random_state=42
+    )
+    model.fit(X_train, y_train)
+    return model
+
+def check_medical_conditions(conditions, primary_drug):
+    """Check for contraindications based on medical conditions"""
+    interactions = get_drug_interactions()
+    warnings = []
+    
+    for condition in conditions:
+        condition_lower = condition.lower().replace(' ', '_')
+        if condition_lower in interactions:
+            if primary_drug in interactions[condition_lower]['avoid']:
+                warnings.append(f"⚠️ **{condition}**: Avoid {primary_drug} - {interactions[condition_lower]['reason']}")
+    
+    return warnings
+
+def predict_comprehensive_kit(model, encoders, label_encoder, df, use_case, region, mission, medical_conditions):
+    """Predict comprehensive drug kit with medical condition checking"""
+    try:
+        # Encode inputs with fallback
+        input_data = []
+        
+        for col, value in [("Use_Case", use_case), ("Region_Notes", region), ("Mission_Type", mission)]:
+            if value in encoders[col].classes_:
+                encoded = encoders[col].transform([value])[0]
+            else:
+                encoded = 0  # Default fallback
+                st.warning(f"⚠️ '{value}' not in training data for {col}. Using default.")
+            input_data.append(encoded)
+        
+        input_df = pd.DataFrame([input_data], columns=["Use_Case", "Region_Notes", "Mission_Type"])
+        
+        # Primary prediction
+        prediction = model.predict(input_df)[0]
+        primary_drug = label_encoder.inverse_transform([prediction])[0]
+        
+        # Get dosage info
+        dosage_info = ""
+        drug_match = df[df['Primary_Drug'] == primary_drug]
+        if not drug_match.empty:
+            dosage_info = drug_match.iloc[0]['Dosage_Info']
+        
+        # Check medical conditions
+        condition_warnings = check_medical_conditions(medical_conditions, primary_drug)
+        
+        # Get regional essentials
+        regional_essentials = get_regional_essentials().get(region, [])
+        
+        return primary_drug, dosage_info, condition_warnings, regional_essentials
+        
+    except Exception as e:
+        return f"Error: {str(e)}", "", [], []
+
+# Main Streamlit App
+def main():
+    st.title("🏥 Advanced Military Drug Kit Optimizer")
+    st.markdown("**Get comprehensive drug recommendations with medical condition screening**")
+    
+    # Create standardized dataset
+    df = create_comprehensive_dataset()
+    
+    # Always use the comprehensive dataset
+    st.info("✅ Using comprehensive medical dataset with contraindication checking")
+    
+    # Show dataset info
+    with st.expander("📊 Dataset Information"):
+        st.write(f"Dataset shape: {df.shape}")
+        st.write("Sample data:")
+        st.dataframe(df.head(10))
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.write("**Use Cases:**")
+            for uc in sorted(df['Use_Case'].unique())[:10]:
+                st.write(f"• {uc}")
+            if len(df['Use_Case'].unique()) > 10:
+                st.write(f"... and {len(df['Use_Case'].unique())-10} more")
+        
+        with col2:
+            st.write("**Regions:**")
+            for reg in sorted(df['Region_Notes'].unique()):
+                st.write(f"• {reg}")
+        
+        with col3:
+            st.write("**Mission Types:**")
+            for mis in sorted(df['Mission_Type'].unique())[:10]:
+                st.write(f"• {mis}")
+            if len(df['Mission_Type'].unique()) > 10:
+                st.write(f"... and {len(df['Mission_Type'].unique())-10} more")
+    
+    # Train model
+    with st.spinner("🔄 Training advanced model..."):
+        result = load_and_preprocess_data(df)
+        if result[0] is None:
+            st.error("Failed to preprocess data")
+            return
+            
+        X_train, X_test, y_train, y_test, encoders, label_encoder = result
+        model = train_model(X_train, y_train)
+        
+        # Evaluate model
+        y_pred = model.predict(X_test)
+        accuracy = accuracy_score(y_test, y_pred)
+    
+    st.success(f"✅ Model trained successfully! Accuracy: {accuracy:.1%}")
+    
+    # Medical conditions input
+    st.header("🩺 Medical History Screening")
+    st.markdown("**Critical: Select any existing medical conditions to avoid dangerous drug interactions**")
+    
+    medical_conditions = st.multiselect(
+        "Select existing medical conditions:",
+        ['Hypertension', 'Diabetes', 'Heart Disease', 'Kidney Disease', 
+         'Liver Disease', 'Asthma', 'Allergies', 'Pregnancy'],
+        help="This is crucial for safe drug recommendations"
+    )
+    
+    # User inputs
+    st.header("🎯 Mission Parameters")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        use_case = st.selectbox(
+            "Primary Medical Concern:",
+            options=[""] + sorted(df['Use_Case'].unique().tolist()),
+            help="Select the main medical issue to address"
+        )
+    
+    with col2:
+        region = st.selectbox(
+            "Operational Environment:",
+            options=[""] + sorted(df['Region_Notes'].unique().tolist()),
+            help="Select the deployment region"
+        )
+    
+    with col3:
+        mission = st.selectbox(
+            "Mission Type:",
+            options=[""] + sorted(df['Mission_Type'].unique().tolist()),
+            help="Select the type of operation"
+        )
+    
+    # Custom inputs
+    st.subheader("🔧 Custom Parameters (Optional):")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        custom_use_case = st.text_input("Custom Medical Concern:", placeholder="e.g., Heat stroke")
+    with col2:
+        custom_region = st.text_input("Custom Environment:", placeholder="e.g., Swamp")
+    with col3:
+        custom_mission = st.text_input("Custom Mission:", placeholder="e.g., Hostage rescue")
+    
+    # Use custom or dropdown inputs
+    final_use_case = custom_use_case if custom_use_case else use_case
+    final_region = custom_region if custom_region else region
+    final_mission = custom_mission if custom_mission else mission
+    
+    if st.button("🚀 Generate Comprehensive Drug Kit", type="primary"):
+        if final_use_case and final_region and final_mission:
+            with st.spinner("🔍 Analyzing requirements..."):
+                primary_drug, dosage_info, warnings, regional_essentials = predict_comprehensive_kit(
+                    model, encoders, label_encoder, df, 
+                    final_use_case, final_region, final_mission, medical_conditions
+                )
+                
+                if not primary_drug.startswith("Error"):
+                    # Display results
+                    st.success(f"### 🎯 Primary Recommendation: **{primary_drug}**")
+                    if dosage_info:
+                        st.info(f"💊 **Dosage:** {dosage_info}")
+                    
+                    # Medical warnings
+                    if warnings:
+                        st.error("🚨 **MEDICAL WARNINGS:**")
+                        for warning in warnings:
+                            st.error(warning)
+                        st.error("**Consult medical officer before administration!**")
+                    else:
+                        st.success("✅ No contraindications identified with current medical history")
+                    
+                    # Comprehensive kit
+                    if regional_essentials:
+                        st.subheader("🎒 Complete Regional Kit")
+                        cols = st.columns(2)
+                        
+                        with cols[0]:
+                            st.write("**Primary Treatment:**")
+                            st.write(f"• {primary_drug} - {dosage_info if dosage_info else 'As needed'}")
+                        
+                        with cols[1]:
+                            st.write("**Regional Essentials:**")
+                            for item in regional_essentials[:5]:
+                                st.write(f"• {item}")
+                    
+                    # Additional recommendations
+                    st.subheader("📋 Additional Considerations")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Always Include:**")
+                        st.write("• Bandages & gauze")
+                        st.write("• Antiseptic wipes")
+                        st.write("• Thermometer")
+                        st.write("• Emergency contact card")
+                    
+                    with col2:
+                        st.write("**Storage Notes:**")
+                        st.write("• Keep medications dry")
+                        st.write("• Protect from extreme temperatures")
+                        st.write("• Check expiration dates")
+                        st.write("• Rotate stock regularly")
+                
+                else:
+                    st.error(f"⚠️ {primary_drug}")
+        else:
+            st.warning("⚠️ Please fill in all required fields.")
+    
+    # Model performance
+    st.header("📈 System Performance")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("Model Accuracy", f"{accuracy:.1%}")
+    with col2:
+        st.metric("Training Samples", len(X_train))
+    with col3:
+        st.metric("Drug Types", df['Primary_Drug'].nunique())
+    with col4:
+        st.metric("Medical Conditions", len(get_drug_interactions()))
+    
+    # Safety notice
+    st.markdown("---")
+    st.warning("⚠️ **MEDICAL DISCLAIMER:** This tool provides recommendations only. Always consult qualified medical personnel before administering medications. In emergency situations, follow established medical protocols.")
+
+if __name__ == "__main__":
+    main()
